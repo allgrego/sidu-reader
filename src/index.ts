@@ -4,7 +4,7 @@ function averageVelocity(
   origin: Vector,
   destination: Vector,
   deltaTime: number,
-) {
+): Vector {
   return Vector.substract(destination, origin).scalarMultiplication(
     1 / deltaTime,
   );
@@ -18,9 +18,9 @@ function averageVelocity(
   const j = new Vector([0, 1, 0]);
   const k = new Vector([0, 0, 1]);
 
-  // console.log('i = ', i);
-  // console.log('j = ', j);
-  // console.log('k =', k);
+  console.log('i = ', i);
+  console.log('j = ', j);
+  console.log('k =', k);
   // console.log('||i|| =', i.magnitude());
   // console.log('||j|| =', j.magnitude());
   // console.log('||k|| =', k.magnitude());
