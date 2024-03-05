@@ -1,58 +1,43 @@
-import Vector from './modules/vector';
+import path from 'node:path';
+import { PDFExtract, PDFExtractOptions } from 'pdf.js-extract';
+import { OperationsRecord } from './modules/types/operation.types';
+import { processPage } from './modules/utils/page';
 
-function averageVelocity(
-  origin: Vector,
-  destination: Vector,
-  deltaTime: number,
-): Vector {
-  return Vector.substract(destination, origin).scalarMultiplication(
-    1 / deltaTime,
-  );
-}
+const pdfExtract = new PDFExtract();
+const options: PDFExtractOptions = {}; /* see below */
 
 /**
  * Main function. App entry point
  */
-(async function (): Promise<void> {
-  const i = new Vector([1, 0, 0]);
-  const j = new Vector([0, 1, 0]);
-  const k = new Vector([0, 0, 1]);
+async function main(): Promise<void> {
+  try {
+    const operations: OperationsRecord = {};
 
-  console.log('i = ', i);
-  console.log('j = ', j);
-  console.log('k =', k);
-  // console.log('||i|| =', i.magnitude());
-  // console.log('||j|| =', j.magnitude());
-  // console.log('||k|| =', k.magnitude());
-  // console.log('i.j =', Vector.dotProduct(i, j));
-  // console.log('i+j =', Vector.add(i, j));
-  // console.log('i-y =', Vector.substract(i, j));
+    const filePath = path.resolve('files/CMAI-0ER9SN1MA.pdf');
 
-  // console.log(
-  //   'a.b =',
-  //   Vector.dotProduct(new Vector([1, 2]), new Vector([2, 3])),
-  // );
+    console.log('filePath', filePath);
 
-  // console.log('cosine angle of a.b =', Vector.cosineOnVectors(i, j));
-  // console.log(
-  //   'angle of a.b =',
-  //   Vector.angle(i, j),
-  //   '=',
-  //   `${Number(Vector.angle(i, j) / Math.PI).toFixed(3)}π radians`,
-  // );
+    const extraction = await pdfExtract.extract(filePath, options);
 
-  const initialPosition = new Vector([0, 0, 0]); // m
+    const pages = extraction.pages.slice(0, 10);
 
-  const finalPosition = new Vector([10, 20, 0]); // m
+    const totalPages = pages.length;
 
-  const deltaTime = 20; // secs
+    console.log('totalPages', totalPages);
 
-  console.log(
-    'Average velocity',
-    averageVelocity(initialPosition, finalPosition, deltaTime),
-    'm/s',
-    '=',
-    averageVelocity(initialPosition, finalPosition, deltaTime).magnitude(),
-    'm/s',
-  );
-})();
+    /**
+     * - - - - - - Pages Processing - - - - -
+     */
+    // Iterate on each page and process them
+    pages.forEach((page) => processPage(page, operations));
+
+    console.log('allOperations', operations);
+
+    console.log('total operations', Object.keys(operations).length);
+  } catch (error) {
+    console.error('Failure', error);
+    throw error;
+  }
+}
+
+main();
