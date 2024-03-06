@@ -13,6 +13,7 @@ export type OperationsRecord = Record<string, OperationBuilder>;
 
 export type Operation = {
   consignee: string;
+  shipper: string;
   blNumber: string;
   originCountry: string;
   originPort: string;

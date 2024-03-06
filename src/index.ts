@@ -1,20 +1,39 @@
+/**
+ * Get semi tabulated data from SIDUNEA files
+ *
+ * Take in consideration the data may be dirty. Some human processing is required later
+ *
+ * Process:
+ *    1. Get the SIDUNEA PDF. Evaluate if it is import or export
+ *    2. Generate the Excel from the PDF on https://www.zamzar.com/
+ *    3. Save the excel file on /files folder
+ *    4. Set the OP_TYPE (import, export)
+ *    5. Set the destination port on variable PORT
+ *    6. Set the path of excel file to get the data on XLSX_FILE_PATH variable
+ *    7. Set the path of generated excel file to dump the processed data on EXPORTED_XLSX_FILE_PATH variable
+ *        Be sure to change this variable, since it will overwrite
+ *    8. Execute npm run build && npm start
+ *
+ */
+
 import fs from 'fs/promises';
 import countries from 'i18n-iso-countries';
 import xlsx from 'node-xlsx';
 import path from 'node:path';
 
 import { getPageColumnsIndexes } from './modules/utils/columns';
-import { getEmptyOperationBuilder } from './modules/utils/operation';
+import {
+  OperationType,
+  getEmptyOperationBuilder,
+} from './modules/utils/operation';
 
 import { Operation, OperationsRecord } from './modules/types/operation.types';
 
-/**
- * Excel generated from PDF from https://www.zamzar.com/
- */
-
-const OP_TYPE = 'import';
-const PORT = 'VEPBL'; // Origin or destination port
-const XLSX_FILE_PATH = 'files/CMAI-0ER9SN1MA.xlsx';
+// TODO: Make this parameters CLI arguments
+const OP_TYPE = OperationType.EXPORT;
+const PORT = '<unknown>'; // Destination port
+const XLSX_FILE_PATH = 'files/362.xlsx'; // File to get the data
+const EXPORTED_XLSX_FILE_PATH = 'files/362-processed.xlsx';
 
 /**
  * Main function. App entry point
@@ -28,12 +47,15 @@ async function main(): Promise<void> {
 
     const filePath = path.resolve(XLSX_FILE_PATH);
 
-    console.log('* Data obtained from:'.padEnd(30, ' '), filePath, '\n');
+    console.log('* Data obtained from:'.padEnd(30, ' '), filePath);
+    console.log('* OP Type:'.padEnd(30, ' '), OP_TYPE);
 
     // Parse a file
     const workSheetsFromFile = xlsx.parse(filePath);
 
     const sheets = workSheetsFromFile;
+
+    console.log('* Total Pages:'.padEnd(30, ' '), sheets.length, '\n');
 
     const operationsRecord: OperationsRecord = {};
 
@@ -207,6 +229,8 @@ async function main(): Promise<void> {
           .join(' ')
           .replace('S/M', '')
           .replace('s/m', '')
+          .replace('NO MARKS.', '')
+          .replace('no marks.', '')
           .replace('PAQUETE', '')
           .trim();
 
@@ -220,13 +244,13 @@ async function main(): Promise<void> {
 
         // TODO: Do this with regexes
 
-        // const shIndex = allExporterData.toLowerCase().indexOf('sh:');
+        const shIndex = allExporterData.toLowerCase().indexOf('sh:');
         const cnIndex = allExporterData.toLowerCase().indexOf('cn:');
         const ntIndex = allExporterData.toLowerCase().indexOf('ny:');
         const ctIndex = allExporterData.toLowerCase().indexOf('ct:');
 
-        // const shipper =
-        //   allExporterData.slice(shIndex, cnIndex).split(':')?.[1]?.trim() || '';
+        const shipper =
+          allExporterData.slice(shIndex, cnIndex).split(':')?.[1]?.trim() || '';
         const consignee =
           allExporterData.slice(cnIndex, ntIndex).split(':')?.[1]?.trim() || '';
         const notify =
@@ -238,6 +262,7 @@ async function main(): Promise<void> {
           allExporterData.slice(ctIndex).split(':')?.[1]?.trim() || '';
 
         return {
+          shipper,
           consignee: consignee || notify,
           totalContainers: containers,
           location: cargoLocation
@@ -265,22 +290,26 @@ async function main(): Promise<void> {
       },
     );
 
-    const consignees: string[] = [];
+    // Processed consignee/shipper depending on operation type (shipper for export, consignee for import)
+    const entities: string[] = [];
 
-    const repeatedConsignees: string[] = [];
+    const repeatedEntities: string[] = [];
 
     // Remove the operations of repeated consignees
-    const operations = cleanOperations.filter(({ consignee }) => {
-      if (consignees.includes(consignee)) {
-        repeatedConsignees.push(consignee);
+    const operations = cleanOperations.filter(({ consignee, shipper }) => {
+      const entity = OP_TYPE === OperationType.EXPORT ? shipper : consignee;
+
+      if (entities.includes(entity)) {
+        repeatedEntities.push(entity);
         return false;
       }
 
-      consignees.push(consignee);
+      entities.push(entity);
       return true;
     });
 
     const headers: string[] = [
+      'shipper',
       'consignee',
       'totalContainers',
       'location',
@@ -300,6 +329,7 @@ async function main(): Promise<void> {
       headers,
       ...operations.map(
         ({
+          shipper,
           consignee,
           totalContainers,
           location,
@@ -315,6 +345,7 @@ async function main(): Promise<void> {
           opType,
         }) => {
           return [
+            shipper,
             consignee,
             totalContainers,
             location,
@@ -335,7 +366,7 @@ async function main(): Promise<void> {
 
     const buffer = xlsx.build([{ name: 'data', data: data, options: {} }]);
 
-    const newFilePath = path.resolve('files/new.xlsx');
+    const newFilePath = path.resolve(EXPORTED_XLSX_FILE_PATH);
 
     await fs.writeFile(newFilePath, buffer);
 
@@ -357,7 +388,7 @@ async function main(): Promise<void> {
     );
     console.log(
       '* Repeated operations removed:'.padEnd(32, ' '),
-      repeatedConsignees.length,
+      repeatedEntities.length,
       '/',
       cleanOperations.length,
     );
