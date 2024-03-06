@@ -33,7 +33,7 @@ import { Operation, OperationsRecord } from './modules/types/operation.types';
 const OP_TYPE = OperationType.EXPORT;
 const PORT = '<unknown>'; // Destination port
 const XLSX_FILE_PATH = 'files/362.xlsx'; // File to get the data
-const EXPORTED_XLSX_FILE_PATH = 'files/362-processed.xlsx';
+const EXPORTED_XLSX_FILE_PATH = 'files/generated/362-processed.xlsx';
 
 /**
  * Main function. App entry point
