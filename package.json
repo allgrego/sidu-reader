@@ -30,6 +30,7 @@
     "@types/lodash": "^4.14.202",
     "arg": "^5.0.2",
     "lodash": "^4.17.21",
+    "node-xlsx": "^0.23.0",
     "pdf.js-extract": "^0.2.1"
   }
 }
