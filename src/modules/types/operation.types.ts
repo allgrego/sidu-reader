@@ -10,3 +10,19 @@ export type OperationBuilder = {
 };
 
 export type OperationsRecord = Record<string, OperationBuilder>;
+
+export type Operation = {
+  consignee: string;
+  blNumber: string;
+  originCountry: string;
+  originPort: string;
+  destinationPort: string;
+  destinationCountry: string;
+  location: string;
+  totalContainers: string;
+  cargoDescription: string;
+  cargoAmount: string;
+  cargoType: string;
+  pages: string;
+  opType: string;
+};

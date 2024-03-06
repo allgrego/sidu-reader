@@ -1,19 +1,26 @@
+import countries from 'i18n-iso-countries';
 import xlsx from 'node-xlsx';
 import path from 'node:path';
-import { OperationsRecord } from './modules/types/operation.types';
+
 import { getPageColumnsIndexes } from './modules/utils/columns';
 import { getEmptyOperationBuilder } from './modules/utils/operation';
+
+import { Operation, OperationsRecord } from './modules/types/operation.types';
 
 /**
  * Excel generated from PDF from https://www.zamzar.com/
  */
+
+const OP_TYPE = 'import';
+const PORT = 'VEPBL'; // Origin or destination port
+const XLSX_FILE_PATH = 'files/CMAI-0ER9SN1MA.xlsx';
 
 /**
  * Main function. App entry point
  */
 async function main(): Promise<void> {
   try {
-    const filePath = path.resolve('files/CMAI-0ER9SN1MA.xlsx');
+    const filePath = path.resolve(XLSX_FILE_PATH);
 
     console.log('filePath', filePath);
 
@@ -175,7 +182,83 @@ async function main(): Promise<void> {
       });
     });
 
-    console.log('operationsRecord', operationsRecord);
+    /**
+     * - - - - - Process operations
+     */
+
+    const rawOperationsList = Object.values(operationsRecord);
+
+    const operations: Operation[] = rawOperationsList.map(
+      ({
+        blNumber,
+        cargoDescription,
+        cargoAmountType,
+        exporterConsignerNotifierContainers,
+        pages,
+        cargoLocation,
+      }) => {
+        const description = cargoDescription
+          .join(' ')
+          .replace('S/M', '')
+          .replace('PAQUETE', '')
+          .trim();
+
+        const amount = String(cargoAmountType?.[0]).replace(',', '');
+
+        const pack = !isNaN(Number(cargoAmountType?.[1]))
+          ? ''
+          : cargoAmountType?.[1];
+
+        const allExporterData = exporterConsignerNotifierContainers.join(' ');
+
+        // TODO: Do this with regexes
+
+        // const shIndex = allExporterData.toLowerCase().indexOf('sh:');
+        const cnIndex = allExporterData.toLowerCase().indexOf('cn:');
+        const ntIndex = allExporterData.toLowerCase().indexOf('ny:');
+        const ctIndex = allExporterData.toLowerCase().indexOf('ct:');
+
+        // const shipper =
+        //   allExporterData.slice(shIndex, cnIndex).split(':')?.[1]?.trim() || '';
+        const consignee =
+          allExporterData.slice(cnIndex, ntIndex).split(':')?.[1]?.trim() || '';
+        const notify =
+          allExporterData
+            .slice(ntIndex, ctIndex < 0 ? undefined : ctIndex)
+            .split(':')?.[1]
+            ?.trim() || '';
+        const containers =
+          allExporterData.slice(ctIndex).split(':')?.[1]?.trim() || '';
+
+        return {
+          consignee: consignee || notify,
+          totalContainers: containers,
+          location: cargoLocation
+            .filter((x) => x)
+            .slice(1)
+            .join(', ')
+            .replace(',,', ','),
+          originPort: cargoLocation?.[0] || '',
+          originCountry:
+            countries.getName(
+              String(cargoLocation?.[0] || '').slice(0, 2),
+              'es',
+            ) || String(cargoLocation?.[0] || '').slice(0, 2),
+          destinationPort: PORT,
+          destinationCountry:
+            countries.getName(String(PORT).slice(0, 2), 'es') || '',
+          cargoAmount: Number(amount).toString(10),
+          cargoType: pack,
+          cargoDescription: description,
+          blNumber: blNumber || '',
+          pages: pages.join(', '),
+          file: path.basename(filePath),
+          opType: OP_TYPE,
+        };
+      },
+    );
+
+    console.log('operations', operations);
   } catch (error) {
     console.error('Failure', error);
     throw error;
